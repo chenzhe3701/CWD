@@ -34,3 +34,7 @@
 \build
 *\build
 *\*\build
+
+\CMakeFiles
+*\CMakeFiles
+*\*\CMakeFiles
