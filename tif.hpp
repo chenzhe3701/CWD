@@ -43,6 +43,7 @@
 #include <limits>
 #include <vector>
 #include <numeric>
+#include <D:\p\c++\CWD\endian.hpp>
 
 struct Tif {
 	std::uint32_t width, height;
@@ -107,35 +108,60 @@ struct Tif {
 	}
 
 	template <typename T>
-	static void Read(char*& buffer, T& width, T& height, T& bufSize, std::string fileName){
-
+	static void Read(T& width, T& height, T& fileSize, std::string fileName){
 		std::ifstream is(fileName, std::ios::in | std::ios::binary);
-		// get file length
 		is.seekg(0, is.end);	// set the position of the next character to be extracted form the input stream (offset, seekdir)
-		bufSize = is.tellg();	// return the position of the current character
+		fileSize = is.tellg();	// return the position of the current character
 		is.seekg(0, is.beg);	// set it back to beginning
-
-		// buffer = new char[bufSize];	// dont forget to 'delete[] buffer'
-		// std::cout << "File length: " << bufSize << " characters" << std::endl;
-		// is.read(buffer, bufSize);	// read data as a block
+		std::cout << "File size: " << fileSize << " Bytes" << std::endl;
+		// char* buffer  = new char[fileSize];	// dont forget to 'delete[] buffer'
+		// is.read(buffer, fileSize);	// read data as a block
 		
 		Tif tif(0,0);
-		tif.readHeader(is);
+
+		bool bigEndian;
+		std::uint32_t firstIfd;		
+		tif.readHeader(is, bigEndian, firstIfd);	// readHeader
+		
+		uint32_t nIfds;
+		//Tif.getNumIfds(is, nIfds, firstIfd)
 	}
 
-	void readHeader(std::istream& is){
 
+	void readHeader(std::istream& is, bool& bigEndian, std::uint32_t& firstIfd){
+		is.seekg(0, is.beg);	// reset position to beginning
 		char* buffer = new char[4];
+		unsigned char* ubuf = reinterpret_cast<unsigned char*>(buffer);
+
 		is.read(buffer, 4);
 		char magicBytes[4] = {buffer[0],buffer[1],buffer[2],buffer[3]};
+		bigEndian = (magicBytes[0]=='M');
 
 		is.read(buffer, 4);
-		uint32_t firstIfd = *(reinterpret_cast<uint32_t*>(buffer));
+		firstIfd = *(reinterpret_cast<uint32_t*>(buffer));
 
 		printf("%s %X %X %X %X \n","magicBytes:", magicBytes[0], magicBytes[1], magicBytes[2], magicBytes[3]);
+		printf("%s %X %X %X %X \n","raw firstIfd offset:", buffer[0], buffer[1], buffer[2], buffer[3]);
+		printf("%s %X %X %X %X \n","raw firstIfd offset:", ubuf[0], ubuf[1], ubuf[2], ubuf[3]);
 		std::cout << "firstIfd offset: " << firstIfd << std::endl;
-
+		std::cout << "firstIfd offset endian swapped " << EndianSwap(firstIfd) << std::endl;
 		delete[] buffer;
+	}
+
+	// void getNumIfds(std::istream& is, std::uint32_t& nIfds, const std::uint32_t& firstIfd){
+	// 	std::int32_t nextIfd = firstIfd;
+
+	// 	while(0 != nextIfd){
+	// 		is.seekg(nextIfd);			// set position to firstIfd
+	// 		std::uint16_t* nEntries = new(sizeof(uint16_t));
+	// 		is.read(nEntries, 2)
+	// 		nextIfd = nextIfd + 2 + nEntries*12
+	// 		++nIfds;
+
+	// 	}
+	// }
+
+	void readIfd(std::istream& is, bool& bigEndian, std::uint32_t& firstIfd){
 	}
 
 	template <typename T>
