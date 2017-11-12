@@ -47,6 +47,8 @@
 
 struct Tif {
 	std::uint32_t width, height;
+	bool m_bigEndian;	// endian of this computer
+	bool m_endianSwap;	// need to swap endian for the target file?
 
 	struct IfdEntry {
 		std::uint16_t tag;
@@ -110,56 +112,68 @@ struct Tif {
 	template <typename T>
 	static void Read(T& width, T& height, T& fileSize, std::string fileName){
 		std::ifstream is(fileName, std::ios::in | std::ios::binary);
+
+		// Determine the file size (may disable this later)
 		is.seekg(0, is.end);	// set the position of the next character to be extracted form the input stream (offset, seekdir)
 		fileSize = is.tellg();	// return the position of the current character
 		is.seekg(0, is.beg);	// set it back to beginning
 		std::cout << "File size: " << fileSize << " Bytes" << std::endl;
-		// char* buffer  = new char[fileSize];	// dont forget to 'delete[] buffer'
-		// is.read(buffer, fileSize);	// read data as a block
 		
 		Tif tif(0,0);
-
-		bool bigEndian;
 		std::uint32_t firstIfd;		
-		tif.readHeader(is, bigEndian, firstIfd);	// readHeader
+		std::uint32_t nIfds;
 		
-		uint32_t nIfds;
-		//Tif.getNumIfds(is, nIfds, firstIfd)
+		tif.readHeader(is, firstIfd);	// readHeader
+		tif.getNumIfds(is, nIfds, firstIfd);
 	}
 
 
-	void readHeader(std::istream& is, bool& bigEndian, std::uint32_t& firstIfd){
+	void readHeader(std::istream& is, std::uint32_t& firstIfd){
 		is.seekg(0, is.beg);	// reset position to beginning
 		char* buffer = new char[4];
-		unsigned char* ubuf = reinterpret_cast<unsigned char*>(buffer);
 
+		// determine endian
 		is.read(buffer, 4);
 		char magicBytes[4] = {buffer[0],buffer[1],buffer[2],buffer[3]};
-		bigEndian = (magicBytes[0]=='M');
+		bool bigEndianTiff = (magicBytes[0]=='M');
+		m_endianSwap = !(bigEndianTiff == m_bigEndian);
 
+		// find firstIfd
 		is.read(buffer, 4);
 		firstIfd = *(reinterpret_cast<uint32_t*>(buffer));
+		firstIfd = EndianSwap(firstIfd, m_endianSwap);
 
 		printf("%s %X %X %X %X \n","magicBytes:", magicBytes[0], magicBytes[1], magicBytes[2], magicBytes[3]);
-		printf("%s %X %X %X %X \n","raw firstIfd offset:", buffer[0], buffer[1], buffer[2], buffer[3]);
-		printf("%s %X %X %X %X \n","raw firstIfd offset:", ubuf[0], ubuf[1], ubuf[2], ubuf[3]);
-		std::cout << "firstIfd offset: " << firstIfd << std::endl;
-		std::cout << "firstIfd offset endian swapped " << EndianSwap(firstIfd) << std::endl;
+		std::cout << "The endian of this computer (is big?): " << m_bigEndian << std::endl;
+		std::cout << "The endian of the target file (is big?): " << bigEndianTiff << std::endl;
+		std::cout << "When reading, need to swap endian ?: " << m_endianSwap << std::endl;
+		std::cout << "firstIfd offset endian swapped corrected: " << firstIfd << std::endl;
 		delete[] buffer;
 	}
 
-	// void getNumIfds(std::istream& is, std::uint32_t& nIfds, const std::uint32_t& firstIfd){
-	// 	std::int32_t nextIfd = firstIfd;
+	void getNumIfds(std::istream& is, std::uint32_t& nIfds, const std::uint32_t& firstIfd){
+		
+		std::int32_t nextIfd = firstIfd;
+		std::int32_t pos;			// offSet position that stores [the value of the nextIfd]
+		char* buf_2 = new char[2];	// 2 Bytes buf to read # of Ifd entries
+		char* buf_4 = new char[2];	// 4 Bytes buf to read the value of nextIfd offset
 
-	// 	while(0 != nextIfd){
-	// 		is.seekg(nextIfd);			// set position to firstIfd
-	// 		std::uint16_t* nEntries = new(sizeof(uint16_t));
-	// 		is.read(nEntries, 2)
-	// 		nextIfd = nextIfd + 2 + nEntries*12
-	// 		++nIfds;
+		while(0 != nextIfd){
+			is.seekg(nextIfd);			// set position to firstIfd
+			is.read(buf_2, 2);		// read 2 bytes
+			pos = nextIfd + 2 + 12 * EndianSwap(*(reinterpret_cast<std::uint16_t*>(buf_2)), m_endianSwap);
 
-	// 	}
-	// }
+			is.seekg(pos);
+			is.read(buf_4, 4);
+			nextIfd = EndianSwap(*(reinterpret_cast<std::uint32_t*>(buf_4)), m_endianSwap);
+
+			++nIfds;
+		}
+		std::cout << "Total number of Ifds: " << nIfds << std::endl;
+
+		delete[] buf_2;
+		delete[] buf_4;
+	}
 
 	void readIfd(std::istream& is, bool& bigEndian, std::uint32_t& firstIfd){
 	}
@@ -209,7 +223,14 @@ struct Tif {
 	}
 
 	private:
-		Tif(const std::uint32_t w, const std::uint32_t h) : width(w), height(h) {}
+		Tif(const std::uint32_t w, const std::uint32_t h) : width(w), height(h) {
+			union {
+				std::uint16_t i;
+				char c[sizeof(uint16_t)];
+			} u;
+			u.i = 0x0102;
+			m_bigEndian = (u.c[0] == 1);
+		}
 };
 
 #endif//_tif_h_

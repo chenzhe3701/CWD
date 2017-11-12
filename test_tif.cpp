@@ -14,7 +14,8 @@ int main(int argc, char *argv[]){
 	// vec[3] = pow(2,16)-1;
 	// Tif::Write(vec.data(),2,2,fileName);		
 	
-	fileName = "d:\\MM.TIF";
+	fileName = "d:\\mm.tif";
+	fileName = "d:\\8_stack.tif";
 
 	uint32_t width, height, fileSize;
 	Tif::Read(width, height, fileSize, fileName);
@@ -26,6 +27,5 @@ int main(int argc, char *argv[]){
 	// 	printf("%X ",buffer[i]);
 	// }
 	// std::cout << std::endl;
-
 }
 
