@@ -46,7 +46,7 @@
 #include <D:\p\c++\CWD\endian.hpp>
 
 struct Tif {
-	std::uint32_t width, height;
+	std::uint32_t width, height, channels;
 	bool m_bigEndian;	// endian of this computer
 	bool m_endianSwap;	// need to swap endian for the target file?
 
@@ -110,12 +110,12 @@ struct Tif {
 	}
 
 	template <typename T>
-	static void Read(T& width, T& height, T& fileSize, std::string fileName){
+	static void Read(std::vector<std::vector<uint16_t>>& imageFrames, std::vector<T>& imageWidth, std::vector<T>& imageHeight, std::vector<T>& nChannels, std::string fileName){
 		std::ifstream is(fileName, std::ios::in | std::ios::binary);
 
 		// Determine the file size (may disable this later)
 		is.seekg(0, is.end);	// set the position of the next character to be extracted form the input stream (offset, seekdir)
-		fileSize = is.tellg();	// return the position of the current character
+		std::uint32_t fileSize = is.tellg();	// return the position of the current character
 		is.seekg(0, is.beg);	// set it back to beginning
 		std::cout << "File size: " << fileSize << " Bytes" << std::endl;
 		
@@ -125,12 +125,16 @@ struct Tif {
 		
 		tif.readHeader(is, firstIfd);	// readHeader
 		tif.getNumIfds(is, nIfds, firstIfd);
-		tif.readIfds(is, nIfds, firstIfd);
+		tif.readAllStack(is, nIfds, firstIfd, imageFrames, imageWidth, imageHeight, nChannels);
 		
 	}
 
-
-	void readIfds(std::istream& is, const std::uint32_t& nIfds, const std::uint32_t& firstIfd){
+	// read into vector<vector<uint16_t>> type vector.
+	// nChannels: 1=grayscale, 3= RGB
+	// Currently only deal with PlanarConfiguration = 1 Chunky. 
+	template <typename T>
+	void readAllStack(std::istream& is, const std::uint32_t& nIfds, const std::uint32_t& firstIfd,
+		 std::vector<std::vector<uint16_t>>& imageFrames, std::vector<T>& imageWidth, std::vector<T>& imageHeight, std::vector<T>& nChannels){
 		
 		// store the offset of this Ifd. Update it at the end of loop. (offset wrt header beginning is positive, so this type difference should be OK)
 		std::int32_t nextIfd = firstIfd;
@@ -138,7 +142,13 @@ struct Tif {
 		// need 1 Byte buf to read single byte data
 		// need 2 Bytes buf to read, e.g., # of Ifd entries
 		// need 4 Bytes buf to read, e.g., the value of nextIfd offset
-		char* bufPtr = new char[8];	
+		char* bufPtr = new char[8];
+
+		std::vector<uint32_t> stripOffSets;	
+		std::vector<uint32_t> stripByteCounts;
+		std::uint32_t imageFormat;		// custom defined, help understand grayscale or RGB.
+		std::uint32_t dataType;			// custom defined, help convert to uint16_t. No need to export.
+
 
 		// std::vector<std::vector<char>> IfdCopy;	// ptr[] to arrays that stores individual Ifd binary copies
 		
@@ -239,20 +249,23 @@ struct Tif {
 					}
 				}
 
-				// (3.7) check 'tag' 
+				// (3.7) check 'tag' to get rules for reading data
 				// get useful information (e.g., width, height, color, format, stripOffsets/byteCounts, sampleFormat, samplePerPix, BitsPerSamp)
 				// prevent info that cannot understand (e.g., compression, bitsPerSamp)
 				// ignore info that don't want (e.g., rowPerStrip)
 
-				
+
 
 				std::cout << std::endl;	// end of current entry		
 			}
 
 
+			// (4) After all IfdEntries are read, read the actual image data
 
 
-			// (Last) go to the end of this Ifd, read 4 bytes to get the offSet of the nextIfd
+
+
+			// (5) go to the end of this Ifd, read 4 bytes to get the offSet of the nextIfd
 			is.seekg(pos);			
 			is.read(bufPtr, 4);
 			nextIfd = EndianSwap(*(reinterpret_cast<std::uint32_t*>(bufPtr)), m_endianSwap);
@@ -281,7 +294,7 @@ struct Tif {
 		
 		std::int32_t nextIfd = firstIfd;	// offsets. firstIfd is positive, so this type difference should be OK.
 		std::int32_t pos;			// offSet position that stores [the value of the nextIfd]
-		char* bufPtr = new char[8];	// 2 Bytes buf to read # of Ifd entries, 4 Bytes buf to read the value of nextIfd offset
+		char* bufPtr = new char[4];	// 2 Bytes buf to read # of Ifd entries, 4 Bytes buf to read the value of nextIfd offset
 
 		while(0 != nextIfd){
 			is.seekg(nextIfd);			// (1) go to/set position to firstIfd

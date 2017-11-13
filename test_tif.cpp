@@ -16,7 +16,7 @@ int main(int argc, char *argv[]){
 	// vec[3] = pow(2,16)-1;
 	// Tif::Write(vec.data(),2,2,fileName);		
 	
-	fileName = "d:\\mm.tif";
+	//fileName = "d:\\mm.tif";
 	//fileName = "d:\\8_stack.tif";
 
 	if(argc>1) {
@@ -24,8 +24,9 @@ int main(int argc, char *argv[]){
 		fileName = s;
 	}
 
-	uint32_t width, height, fileSize;
-	Tif::Read(width, height, fileSize, fileName);
+	std::vector<uint32_t> imageWidth, imageHeight, nChannels;
+	std::vector<std::vector<uint16_t>> imageFrames;
+	Tif::Read(imageFrames, imageWidth, imageHeight, nChannels, fileName);
 
 	// unsigned int aa = 0xffffffae;
 	// std::cout << aa;
