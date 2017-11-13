@@ -146,14 +146,17 @@ struct Tif {
 			std::uint32_t nEntries = EndianSwap(*(reinterpret_cast<std::uint16_t*>(bufPtr_2)), m_endianSwap);
 			std::uint32_t pos = nextIfd + 2 + 12 * nEntries;		// offSet position that stores [the value of the nextIfd]
 			
-
-			// (3) copy the whole Ifd
+			// (2) copy the whole Ifd, push to IfdCopy
 			is.seekg(nextIfd);
 			std::vector<char> a(2+12*nEntries+4);
 			is.read(a.data(), 2+12*nEntries+4);
 			IfdCopy.push_back(a);
 
-			// (2) go to the end of this Ifd, read 4 bytes to get the offSet of the nextIfd
+
+
+
+
+			// (Last) go to the end of this Ifd, read 4 bytes to get the offSet of the nextIfd
 			is.seekg(pos);			
 			is.read(bufPtr_4, 4);
 			nextIfd = EndianSwap(*(reinterpret_cast<std::uint32_t*>(bufPtr_4)), m_endianSwap);
