@@ -133,50 +133,147 @@ struct Tif {
 	void readIfds(std::istream& is, const std::uint32_t& nIfds, const std::uint32_t& firstIfd){
 		
 		// store the offset of this Ifd. Update it at the end of loop. (offset wrt header beginning is positive, so this type difference should be OK)
-		std::int32_t nextIfd = firstIfd;		
-		char* bufPtr_2 = new char[2];	// 2 Bytes buf to read # of Ifd entries
-		char* bufPtr_4 = new char[4];	// 4 Bytes buf to read the value of nextIfd offset
+		std::int32_t nextIfd = firstIfd;
 
-		std::vector<std::vector<char>> IfdCopy;	// ptr[] to arrays that stores individual Ifd binary copies
+		// need 1 Byte buf to read single byte data
+		// need 2 Bytes buf to read, e.g., # of Ifd entries
+		// need 4 Bytes buf to read, e.g., the value of nextIfd offset
+		char* bufPtr = new char[8];	
+
+		// std::vector<std::vector<char>> IfdCopy;	// ptr[] to arrays that stores individual Ifd binary copies
 		
 		for (int iIfd = 0; iIfd < nIfds; ++ iIfd){
 			// (1) go to/set position to beginning of this Ifd, read 2 bytes to get # of entries
 			is.seekg(nextIfd);
-			is.read(bufPtr_2, 2);
-			std::uint32_t nEntries = EndianSwap(*(reinterpret_cast<std::uint16_t*>(bufPtr_2)), m_endianSwap);
+			is.read(bufPtr, 2);
+			std::uint32_t nEntries = EndianSwap(*(reinterpret_cast<std::uint16_t*>(bufPtr)), m_endianSwap);
 			std::uint32_t pos = nextIfd + 2 + 12 * nEntries;		// offSet position that stores [the value of the nextIfd]
 			
 			// (2) copy the whole Ifd, push to IfdCopy
-			is.seekg(nextIfd);
-			std::vector<char> a(2+12*nEntries+4);
-			is.read(a.data(), 2+12*nEntries+4);
-			IfdCopy.push_back(a);
+			// is.seekg(nextIfd);
+			// std::vector<char> a(2+12*nEntries+4);
+			// is.read(a.data(), 2+12*nEntries+4);
+			// IfdCopy.push_back(a);
 
+			// (3) interp this entry
+			std::cout << "\nIfd number: " << iIfd <<std::endl;
+			for (int iEntry = 0; iEntry < nEntries; ++iEntry){
+				// (3.0) set to beginning of entry
+				is.seekg(nextIfd+2+12*iEntry);
+
+				// (3.1) read Tag
+				is.read(bufPtr, 2);
+				std::uint16_t tag = EndianSwap(*(reinterpret_cast<std::uint16_t*>(bufPtr)), m_endianSwap);
+				printf("tag: %X\t", tag);
+
+				// (3.2) read Type
+				is.read(bufPtr, 2);
+				std::uint16_t type = EndianSwap(*(reinterpret_cast<std::uint16_t*>(bufPtr)), m_endianSwap);
+				printf("type: %X\t", type);
+				
+				// (3.3) read Count (N)
+				is.read(bufPtr, 4);
+				std::uint32_t count = EndianSwap(*(reinterpret_cast<std::uint32_t*>(bufPtr)), m_endianSwap);
+				printf("count: %X\t", count);
+
+				// (3.4) read Value/Offset raw (without interpretation)
+				is.read(bufPtr, 4);
+				std::uint32_t valueRaw = EndianSwap(*(reinterpret_cast<std::uint32_t*>(bufPtr)), m_endianSwap);
+				printf("value/offset as int32_t: %8X", valueRaw);
+
+
+				// This contains the 'byteSize' corresponding to 'Type'
+				std::uint32_t byteSizeOfType[13] = {0,sizeof(uint8_t),sizeof(char),sizeof(uint16_t),sizeof(uint32_t),2*sizeof(uint32_t),
+					sizeof(int8_t),sizeof(char),sizeof(int16_t),sizeof(int32_t),2*sizeof(int32_t), sizeof(float),sizeof(double)};
+				
+				// determine (use valueRaw as value) or (use valueRaw as offset)
+				if(byteSizeOfType[type] * count <=4){
+					is.seekg(nextIfd+2+12*iEntry+8);
+				}
+				else{
+					is.seekg((int32_t)valueRaw);
+				}
+
+				// [][][] Note, currently use a larger vector to store all those values. !!!
+				std::vector<uint64_t> value_64;
+				
+				// (3.5) read [count] times to get 'value_64'
+				for (int iCount = 0; iCount < count; ++iCount){
+					// switch 'type', read properly
+					try{
+						switch(type){
+							case 1:
+								is.read(bufPtr, 1);
+								value_64.push_back(EndianSwap(*(reinterpret_cast<std::uint8_t*>(bufPtr)), m_endianSwap));
+								break;
+							case 2:
+								is.read(bufPtr, 1);
+								value_64.push_back(EndianSwap(*(reinterpret_cast<char*>(bufPtr)), m_endianSwap));
+								break;
+							case 3:
+								is.read(bufPtr, 2);
+								value_64.push_back(EndianSwap(*(reinterpret_cast<std::int16_t*>(bufPtr)), m_endianSwap));
+								break;
+							case 4:
+								is.read(bufPtr, 4);
+								value_64.push_back(EndianSwap(*(reinterpret_cast<std::int32_t*>(bufPtr)), m_endianSwap));
+								break;
+							default:
+								throw std::runtime_error("\ttype currently not handled");
+						}
+					}
+					catch(const std::exception& e){
+						std::cout << e.what();
+					}
+
+				}
+
+				// (3.6) print interpreted value
+				std::cout << "\tvalue: ";
+				for(int i=0; i<value_64.size(); ++i){
+					switch(type){
+						case 1: std::cout << uint8_t(value_64[i]) << " "; break;
+						case 2: std::cout << char(value_64[i]); break;
+						case 3: std::cout << uint16_t(value_64[i]) << " "; break;
+						case 4: std::cout << uint32_t(value_64[i]) << " "; break;
+					}
+				}
+
+				// (3.7) check 'tag' 
+				// get useful information (e.g., width, height, color, format, stripOffsets/byteCounts, sampleFormat, samplePerPix, BitsPerSamp)
+				// prevent info that cannot understand (e.g., compression, bitsPerSamp)
+				// ignore info that don't want (e.g., rowPerStrip)
+
+				
+
+				std::cout << std::endl;	// end of current entry		
+			}
 
 
 
 
 			// (Last) go to the end of this Ifd, read 4 bytes to get the offSet of the nextIfd
 			is.seekg(pos);			
-			is.read(bufPtr_4, 4);
-			nextIfd = EndianSwap(*(reinterpret_cast<std::uint32_t*>(bufPtr_4)), m_endianSwap);
+			is.read(bufPtr, 4);
+			nextIfd = EndianSwap(*(reinterpret_cast<std::uint32_t*>(bufPtr)), m_endianSwap);
 		}
 
-		for (int iIfd = 0; iIfd < nIfds; ++ iIfd){
-			std::cout << "\nIfd #: " << iIfd << std::endl;
-			printf("# of entries: %X%X", (uint8_t)IfdCopy[iIfd][0], (uint8_t)IfdCopy[iIfd][1]);	// # Ifds
-			for(int j=2; j<IfdCopy[iIfd].size()-4;++j){
-				if (2==j%12) std::cout<<std::endl;
-				printf("%X ", (uint8_t)IfdCopy[iIfd][j]);
-			}
-			std::cout << "\nNext Ifd offset:";
-			for(int j=IfdCopy[iIfd].size()-4; j<IfdCopy[iIfd].size();++j){
-				if (IfdCopy[iIfd].size()-4==j%16) std::cout<<std::endl;
-				printf("%X ", (uint8_t)IfdCopy[iIfd][j]);
-			}
-		}
-		delete[] bufPtr_2;
-		delete[] bufPtr_4;
+
+		// This loop printf the raw Ifds to user.
+		// for (int iIfd = 0; iIfd < nIfds; ++ iIfd){
+		// 	std::cout << "\nIfd #: " << iIfd << std::endl;
+		// 	printf("# of entries: %X%X", (uint8_t)IfdCopy[iIfd][0], (uint8_t)IfdCopy[iIfd][1]);	// # Ifds
+		// 	for(int j=2; j<IfdCopy[iIfd].size()-4;++j){
+		// 		if (2==j%12) std::cout<<std::endl;
+		// 		printf("%X ", (uint8_t)IfdCopy[iIfd][j]);
+		// 	}
+		// 	std::cout << "\nNext Ifd offset:";
+		// 	for(int j=IfdCopy[iIfd].size()-4; j<IfdCopy[iIfd].size();++j){
+		// 		if (IfdCopy[iIfd].size()-4==j%16) std::cout<<std::endl;
+		// 		printf("%X ", (uint8_t)IfdCopy[iIfd][j]);
+		// 	}
+		// }
+		delete[] bufPtr;
 	}
 
 
@@ -184,24 +281,22 @@ struct Tif {
 		
 		std::int32_t nextIfd = firstIfd;	// offsets. firstIfd is positive, so this type difference should be OK.
 		std::int32_t pos;			// offSet position that stores [the value of the nextIfd]
-		char* buf_2 = new char[2];	// 2 Bytes buf to read # of Ifd entries
-		char* buf_4 = new char[4];	// 4 Bytes buf to read the value of nextIfd offset
+		char* bufPtr = new char[8];	// 2 Bytes buf to read # of Ifd entries, 4 Bytes buf to read the value of nextIfd offset
 
 		while(0 != nextIfd){
 			is.seekg(nextIfd);			// (1) go to/set position to firstIfd
-			is.read(buf_2, 2);		// (2) read 2 bytes to get # of entries
-			pos = nextIfd + 2 + 12 * EndianSwap(*(reinterpret_cast<std::uint16_t*>(buf_2)), m_endianSwap);
+			is.read(bufPtr, 2);		// (2) read 2 bytes to get # of entries
+			pos = nextIfd + 2 + 12 * EndianSwap(*(reinterpret_cast<std::uint16_t*>(bufPtr)), m_endianSwap);
 
 			is.seekg(pos);			// (3) go to the end of this Ifd and read the offSet of the nextIfd
-			is.read(buf_4, 4);
-			nextIfd = EndianSwap(*(reinterpret_cast<std::uint32_t*>(buf_4)), m_endianSwap);
+			is.read(bufPtr, 4);
+			nextIfd = EndianSwap(*(reinterpret_cast<std::uint32_t*>(bufPtr)), m_endianSwap);
 
 			++nIfds;
 		}
 		std::cout << "Total number of Ifds: " << nIfds << std::endl;
 
-		delete[] buf_2;
-		delete[] buf_4;
+		delete[] bufPtr;
 	}
 
 	void readHeader(std::istream& is, std::uint32_t& firstIfd){

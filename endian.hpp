@@ -1,6 +1,10 @@
 #ifndef _endian_hpp_
 #define _endian_hpp_
 
+// chenzhe <chenzhe@ucsb.edu>
+// creatd to help treat endian related issue.
+// 2017-11
+
 // Test if this computer is bigEndian
 bool BigEndianThisMachine(){
 	union {
@@ -10,6 +14,21 @@ bool BigEndianThisMachine(){
 	u.i = 0x0102;
 	bool isBigEndian = (u.c[0] == 1);
 	return isBigEndian;
+}
+
+// push a <T> type variable into vector, byte-by-byte, ignoring data type.
+template <typename T>
+void byte_push(std::vector<char>& v, T t){
+	for (int i=0; i<sizeof(T); ++i){
+		v.push_back(*(reinterpret_cast<char*>(&t)+i));
+	}
+}
+
+template <typename T>
+void byte_push(std::vector<unsigned char>& v, T t){
+	for (int i=0; i<sizeof(T); ++i){
+		v.push_back(*(reinterpret_cast<char*>(&t)+i));
+	}
 }
 
 // Swap endian of a input number (referenced by value), if the switch swapTF is set to true.

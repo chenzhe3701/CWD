@@ -1,10 +1,12 @@
 #include <iostream>
 #include <stdio.h>
+#include <string>
 #include <cmath>
 #include <D:\p\c++\CWD\tif.hpp>
 
 int main(int argc, char *argv[]){
 	
+
 	// first make a tif image.
 	std::string fileName = "d:\\2by2tif.tif";
 	// std::vector<uint16_t> vec(4);
@@ -15,7 +17,12 @@ int main(int argc, char *argv[]){
 	// Tif::Write(vec.data(),2,2,fileName);		
 	
 	fileName = "d:\\mm.tif";
-	fileName = "d:\\8_stack.tif";
+	//fileName = "d:\\8_stack.tif";
+
+	if(argc>1) {
+		std::string s(argv[1]);
+		fileName = s;
+	}
 
 	uint32_t width, height, fileSize;
 	Tif::Read(width, height, fileSize, fileName);
