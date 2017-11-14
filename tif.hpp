@@ -121,7 +121,7 @@ struct Tif {
 		
 		Tif tif(0,0);
 		std::uint32_t firstIfd;		
-		std::uint32_t nIfds;
+		std::uint32_t nIfds = 0;
 		
 		tif.readHeader(is, firstIfd);	// readHeader
 		tif.getNumIfds(is, nIfds, firstIfd);
