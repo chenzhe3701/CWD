@@ -45,6 +45,14 @@
 #include <numeric>
 #include <D:\p\c++\CWD\endian.hpp>
 
+template <typename T>
+void printVector(std::vector<T> a){
+	for(int i=0; i<a.size(); ++i) std::cout << a[i] << " ";
+
+	std::cout << std::endl;
+}
+
+
 struct Tif {
 	std::uint32_t width, height, channels;
 	bool m_bigEndian;	// endian of this computer
@@ -110,7 +118,7 @@ struct Tif {
 	}
 
 	template <typename T>
-	static void Read(std::vector<std::vector<uint16_t>>& imageFrames, std::vector<T>& imageWidth, std::vector<T>& imageHeight, std::vector<T>& nChannels, std::string fileName){
+	static void Read(std::vector<std::vector<uint16_t>>& imageFrames, std::vector<T>& imageWidth, std::vector<T>& imageHeight, std::vector<T>& imageSampleFormat, std::vector<T>& nChannels, std::string fileName){
 		std::ifstream is(fileName, std::ios::in | std::ios::binary);
 
 		// Determine the file size (may disable this later)
@@ -123,18 +131,18 @@ struct Tif {
 		std::uint32_t firstIfd;		
 		std::uint32_t nIfds = 0;
 		
-		tif.readHeader(is, firstIfd);	// readHeader
+		tif.readHeader(is, firstIfd);	// readHeader, and update Ifd.
 		tif.getNumIfds(is, nIfds, firstIfd);
-		tif.readAllStack(is, nIfds, firstIfd, imageFrames, imageWidth, imageHeight, nChannels);
+		tif.readAllStack(is, nIfds, firstIfd, imageFrames, imageWidth, imageHeight, imageSampleFormat, nChannels);
 		
 	}
 
 	// read into vector<vector<uint16_t>> type vector.
 	// nChannels: 1=grayscale, 3= RGB
-	// Currently only deal with PlanarConfiguration = 1 Chunky. 
+	// Currently suggest planarConfiguration = 1 Chunky. 
 	template <typename T>
 	void readAllStack(std::istream& is, const std::uint32_t& nIfds, const std::uint32_t& firstIfd,
-		 std::vector<std::vector<uint16_t>>& imageFrames, std::vector<T>& imageWidth, std::vector<T>& imageHeight, std::vector<T>& nChannels){
+		 std::vector<std::vector<uint16_t>>& imageFrames, std::vector<T>& imageWidth, std::vector<T>& imageHeight, std::vector<T>& imageSampleFormat, std::vector<T>& nChannels){
 		
 		// store the offset of this Ifd. Update it at the end of loop. (offset wrt header beginning is positive, so this type difference should be OK)
 		std::int32_t nextIfd = firstIfd;
@@ -144,15 +152,23 @@ struct Tif {
 		// need 4 Bytes buf to read, e.g., the value of nextIfd offset
 		char* bufPtr = new char[8];
 
-		std::vector<uint32_t> stripOffSets;	
-		std::vector<uint32_t> stripByteCounts;
-		std::uint32_t imageFormat;		// custom defined, help understand grayscale or RGB.
-		std::uint32_t dataType;			// custom defined, help convert to uint16_t. No need to export.
-
 
 		// std::vector<std::vector<char>> IfdCopy;	// ptr[] to arrays that stores individual Ifd binary copies
-		
+		std::vector<uint16_t> frameImg;
 		for (int iIfd = 0; iIfd < nIfds; ++ iIfd){
+			frameImg.clear();
+			// used to get this image frame/stack/Ifd.  Must have value before reading actual image data.
+			std::vector<uint32_t> stripOffSets;		// This will definitely be updated.
+			std::vector<uint32_t> stripByteCounts;	// This will definitely be updated
+			std::vector<uint32_t> bitsPerSample(1,1);	// (default 1, for bilevel) required for [grayscale, 4 or 8][rgb, {8,8,8}] image.
+														// note if need to update, first need to clean it.
+			std::uint32_t samplesPerPixel = 1;			// (default 1) required for [rgb] image. so need some default
+			std::uint32_t planarConfiguration = 1;	// 1=chunky (default), 2=planar
+			std::uint32_t dataType = 1;				// 1=unsinged int (default). 2=int, 3=float, 4=undefined
+			std::uint32_t compression = 1;
+			std::uint32_t stackWidth = 0;
+			std::uint32_t stackHeight = 0;
+
 			// (1) go to/set position to beginning of this Ifd, read 2 bytes to get # of entries
 			is.seekg(nextIfd);
 			is.read(bufPtr, 2);
@@ -165,37 +181,31 @@ struct Tif {
 			// is.read(a.data(), 2+12*nEntries+4);
 			// IfdCopy.push_back(a);
 
-			// (3) interp this entry
-			std::cout << "\nIfd number: " << iIfd <<std::endl;
+			// (3) for each entry, interp.
+			std::cout << "\nIfd number: " << iIfd << " ,  number of IfdEntries: " << nEntries << std::endl;
 			for (int iEntry = 0; iEntry < nEntries; ++iEntry){
 				// (3.0) set to beginning of entry
 				is.seekg(nextIfd+2+12*iEntry);
-
 				// (3.1) read Tag
 				is.read(bufPtr, 2);
 				std::uint16_t tag = EndianSwap(*(reinterpret_cast<std::uint16_t*>(bufPtr)), m_endianSwap);
-				printf("tag: %X\t", tag);
-
+				printf("tag: %4X\t", tag);
 				// (3.2) read Type
 				is.read(bufPtr, 2);
 				std::uint16_t type = EndianSwap(*(reinterpret_cast<std::uint16_t*>(bufPtr)), m_endianSwap);
-				printf("type: %X\t", type);
-				
+				printf(" type: %X\t", type);				
 				// (3.3) read Count (N)
 				is.read(bufPtr, 4);
 				std::uint32_t count = EndianSwap(*(reinterpret_cast<std::uint32_t*>(bufPtr)), m_endianSwap);
-				printf("count: %X\t", count);
-
+				printf(" count: %4X\t", count);
 				// (3.4) read Value/Offset raw (without interpretation)
 				is.read(bufPtr, 4);
 				std::uint32_t valueRaw = EndianSwap(*(reinterpret_cast<std::uint32_t*>(bufPtr)), m_endianSwap);
-				printf("value/offset as int32_t: %8X", valueRaw);
-
+				printf(" value/offset as int32_t: %8X", valueRaw);
 
 				// This contains the 'byteSize' corresponding to 'Type'
 				std::uint32_t byteSizeOfType[13] = {0,sizeof(uint8_t),sizeof(char),sizeof(uint16_t),sizeof(uint32_t),2*sizeof(uint32_t),
 					sizeof(int8_t),sizeof(char),sizeof(int16_t),sizeof(int32_t),2*sizeof(int32_t), sizeof(float),sizeof(double)};
-				
 				// determine (use valueRaw as value) or (use valueRaw as offset)
 				if(byteSizeOfType[type] * count <=4){
 					is.seekg(nextIfd+2+12*iEntry+8);
@@ -203,33 +213,39 @@ struct Tif {
 				else{
 					is.seekg((int32_t)valueRaw);
 				}
-
-				// [][][] Note, currently use a larger vector to store all those values. !!!
-				std::vector<uint64_t> value_64;
 				
-				// (3.5) read [count] times to get 'value_64'
+				std::vector<uint64_t> value;	// Note, currently use a larger<uint64_t> vector to store all those values. !!!
+				
+				// (3.5) read [count] times to get the value of this entry, and push to 'value'
 				for (int iCount = 0; iCount < count; ++iCount){
 					// switch 'type', read properly
+					// 1=uint8(byte), 2=ascii, 3=uint16(short), 4=uint32(long), 5=[long_numerator,long_demoninator], ... 
 					try{
 						switch(type){
 							case 1:
 								is.read(bufPtr, 1);
-								value_64.push_back(EndianSwap(*(reinterpret_cast<std::uint8_t*>(bufPtr)), m_endianSwap));
+								value.push_back(EndianSwap(*(reinterpret_cast<std::uint8_t*>(bufPtr)), m_endianSwap));
 								break;
 							case 2:
 								is.read(bufPtr, 1);
-								value_64.push_back(EndianSwap(*(reinterpret_cast<char*>(bufPtr)), m_endianSwap));
+								value.push_back(EndianSwap(*(reinterpret_cast<char*>(bufPtr)), m_endianSwap));
 								break;
 							case 3:
 								is.read(bufPtr, 2);
-								value_64.push_back(EndianSwap(*(reinterpret_cast<std::int16_t*>(bufPtr)), m_endianSwap));
+								value.push_back(EndianSwap(*(reinterpret_cast<std::int16_t*>(bufPtr)), m_endianSwap));
 								break;
 							case 4:
 								is.read(bufPtr, 4);
-								value_64.push_back(EndianSwap(*(reinterpret_cast<std::int32_t*>(bufPtr)), m_endianSwap));
+								value.push_back(EndianSwap(*(reinterpret_cast<std::int32_t*>(bufPtr)), m_endianSwap));
+								break;
+							case 5:
+								is.read(bufPtr, 4);
+								value.push_back(EndianSwap(*(reinterpret_cast<std::int32_t*>(bufPtr)), m_endianSwap));
+								is.read(bufPtr, 4);
+								value.push_back(EndianSwap(*(reinterpret_cast<std::int32_t*>(bufPtr)), m_endianSwap));
 								break;
 							default:
-								throw std::runtime_error("\ttype currently not handled");
+								throw std::runtime_error("");
 						}
 					}
 					catch(const std::exception& e){
@@ -240,29 +256,110 @@ struct Tif {
 
 				// (3.6) print interpreted value
 				std::cout << "\tvalue: ";
-				for(int i=0; i<value_64.size(); ++i){
+				for(int i=0; i<value.size(); ++i){
 					switch(type){
-						case 1: std::cout << uint8_t(value_64[i]) << " "; break;
-						case 2: std::cout << char(value_64[i]); break;
-						case 3: std::cout << uint16_t(value_64[i]) << " "; break;
-						case 4: std::cout << uint32_t(value_64[i]) << " "; break;
+						case 1: 
+							if(i<32){std::cout << uint8_t(value[i]);}
+							else{std::cout << "..."; i = value.size()-1;}
+							break;
+						case 2: 
+							if(i<32){std::cout << char(value[i]);}
+							else{std::cout << "..."; i = value.size()-1;}
+							break;
+						case 3: std::cout << uint16_t(value[i]); break;
+						case 4: std::cout << uint32_t(value[i]); break;
+						case 5: std::cout << double(value[i])/double(value[i+1]); ++i; break;
 					}
 				}
 
-				// (3.7) check 'tag' to get rules for reading data
-				// get useful information (e.g., width, height, color, format, stripOffsets/byteCounts, sampleFormat, samplePerPix, BitsPerSamp)
-				// prevent info that cannot understand (e.g., compression, bitsPerSamp)
+				// (3.7) check 'tag' to get rules ready for reading data
+				// get useful information (e.g., width, height, color, format, stripOffSets/byteCounts, sampleFormat, samplesPerPixel, BitsPerSamp)
+				// prevent info that cannot understand (e.g., compression, bitsPerSample)
 				// ignore info that don't want (e.g., rowPerStrip)
-
-
+				dataType = 1;	// set back to default type
+				try{
+					switch(tag){
+						case 0x0100: stackWidth = value[0]; break;
+						case 0x0101: stackHeight = value[0]; break;
+						case 0x0102: 
+							bitsPerSample.clear();
+							for (int k=0; k<value.size(); ++k){
+								bitsPerSample.push_back(value[k]);
+								if(0!=value[k]%8) {throw std::runtime_error("\tcurrently only suggest bitsPerSample = 8xN ");}
+							}
+							break;
+						case 0x0103: 
+							compression = value[0];
+							if(1!=value[0]) throw std::runtime_error("\tcurrently only suggest Compression = 1 (no compression)");
+							break;
+						case 0x0111:
+							for (int k=0; k<value.size(); ++k){
+								stripOffSets.push_back(value[k]);
+							}
+							break;
+						case 0x011c:
+							planarConfiguration = value[0];
+							if(1!=planarConfiguration) throw std::runtime_error("\tcurrently only suggested planarConfiguration = 1 (chunky)");
+							break;
+						case 0x0115: samplesPerPixel = value[0]; break;
+						case 0x0117:
+							for (int k=0; k<value.size(); ++k){
+								stripByteCounts.push_back(value[k]);
+							}
+							break;
+						case 0x0153: dataType = value[0]; break;
+					}
+				}
+				catch(const std::exception& e){
+						std::cout << e.what();
+				}				
 
 				std::cout << std::endl;	// end of current entry		
 			}
-
+			// after loop all entries of this Ifd, push
+			imageWidth.push_back(stackWidth);
+			imageHeight.push_back(stackHeight);
+			nChannels.push_back(samplesPerPixel);
+			imageSampleFormat.push_back(dataType);	// push back
+			
+			std::cout << "stripByteCounts: ";
+			printVector(stripByteCounts);
 
 			// (4) After all IfdEntries are read, read the actual image data
+			stripOffSets;	
+			stripByteCounts;
+			bitsPerSample;
+			samplesPerPixel ;
+			planarConfiguration ;	// 1=chunky, 2=planar
+			dataType ;		// 1 = by default unsinged int. 2=int, 3=float, 4=undefined.
+
+			frameImg.reserve(stackWidth*stackHeight*3);
+			int bitsPerPixel = 0;
+			for (int ii=0; ii<samplesPerPixel; ++ii){
+				bitsPerPixel += bitsPerSample[ii];
+			}
+			
+			int pixelsThisStrip = 0;
+			for (int iStrip=0; iStrip<stripOffSets.size(); ++iStrip){
+				pixelsThisStrip = stripByteCounts[iStrip] * 8 / bitsPerPixel;
+				is.seekg(stripOffSets[iStrip]);
+				int bitOffset = 0;
+				if(1==planarConfiguration){
+					for (int iPixel=0; iPixel<pixelsThisStrip; ++iPixel){
+						for (int iChannel = 0; iChannel<samplesPerPixel; ++iChannel){
+							frameImg.push_back( readToUint16(is, bitOffset, bitsPerSample[iChannel], m_endianSwap) );
+							bitOffset += bitsPerSample[iChannel];	// update bitOffset, which is wrt the the position indicated by current stripOffset				
+						}
+					}
+				}
+				else if(2==planarConfiguration){
 
 
+				}				
+				
+			}
+			// push to imageFrames
+			imageFrames.push_back(frameImg);
 
 
 			// (5) go to the end of this Ifd, read 4 bytes to get the offSet of the nextIfd
@@ -289,6 +386,40 @@ struct Tif {
 		delete[] bufPtr;
 	}
 
+	// bitOffset is with respect to current position. Convert to uint16_t.  Consider endian.
+	std::uint16_t readToUint16(std::istream& is, const int bitOffset, const int bitsToRead, const bool endianSwapTF){
+		int32_t oldPos = is.tellg();
+		char* bufPtr = new char[8];
+		uint16_t returnValue = 0;
+
+		int bitsBack = bitOffset%8;
+		int byteOffset = bitOffset/8;
+		is.seekg(oldPos + byteOffset);
+		if(4 == bitsToRead){
+			is.read(bufPtr, 1);
+			uint8_t val = *(reinterpret_cast<std::uint8_t*>(bufPtr));
+			val <<= bitsBack;
+			val >>= 8-bitsToRead;
+			returnValue = val;
+		}
+		else if(8==bitsToRead){
+			is.read(bufPtr, 1);
+			returnValue = (*(reinterpret_cast<std::uint8_t*>(bufPtr)))*256;
+		}
+		else if(16==bitsToRead){
+			is.read(bufPtr, 2);
+			returnValue = EndianSwap(*(reinterpret_cast<std::uint16_t*>(bufPtr)), endianSwapTF);
+		}
+		else if(32==bitsToRead){
+			is.read(bufPtr, 4);
+			float val = EndianSwap(*(reinterpret_cast<float*>(bufPtr)), endianSwapTF);
+			returnValue = uint16_t(val * 65565 + 32768);
+		}
+		// std::cout << returnValue << "  returned"<< std::endl;
+		is.seekg(oldPos);	// put is back to original position
+		delete[] bufPtr;
+		return returnValue;
+	}
 
 	void getNumIfds(std::istream& is, std::uint32_t& nIfds, const std::uint32_t& firstIfd){
 		
