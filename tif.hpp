@@ -343,6 +343,48 @@ struct Tif {
 			for (int iStrip=0; iStrip<stripOffSets.size(); ++iStrip){
 				pixelsThisStrip = stripByteCounts[iStrip] * 8 / bitsPerPixel;
 				is.seekg(stripOffSets[iStrip]);
+
+				switch(bitsPerSample[0]){
+					case 1:
+					case 4:
+						break;
+					case 8:
+						break;						
+					case 16:
+						if(1==samplesPerPixel){
+							if(0==m_endianSwap){
+								for(int p=0; p<pixelsThisStrip; ++p){
+									is.read(bufPtr, 2);
+									frameImg.push_back(*(reinterpret_cast<uint16_t*>(bufPtr)));
+								}
+							}
+							else{
+
+							}
+						}
+						else{
+							throw std::runtime_error("for 16-bit image, only expect 1 channel \n");
+						}
+						break;
+					case 32:
+						if(1==samplesPerPixel){
+							if(0==m_endianSwap){
+								is.read(bufPtr, 4);
+							}
+							else{
+
+							}
+						}
+						else{
+							throw std::runtime_error("for 16-bit image, only expect 1 channel \n");
+						}
+						break;
+				}
+
+
+
+
+
 				int bitOffset = 0;
 				if(1==planarConfiguration){
 					for (int iPixel=0; iPixel<pixelsThisStrip; ++iPixel){
