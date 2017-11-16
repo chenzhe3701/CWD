@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string>
 #include <cmath>
-#include <D:\p\c++\CWD\tif.hpp>
+#include <tif.hpp>
 
 
 int main(int argc, char *argv[]){
@@ -20,10 +20,10 @@ int main(int argc, char *argv[]){
 	
 	fileName = "d:\\mm.tif";
 	fileName = "d:\\8_stack.tif";
-	fileName = "d:\\8_bit_grayscale_pc.tif";
-	fileName = "d:\\16_bit_grayscale_pc.tif";
-	fileName = "d:\\32_bit_grayscale_pc.tif";
-	fileName = "d:\\8_bit_rgb_pc.tif";
+	// fileName = "d:\\8_bit_grayscale_pc.tif";
+	// fileName = "d:\\16_bit_grayscale_pc.tif";
+	// fileName = "d:\\32_bit_grayscale_pc.tif";
+	// fileName = "d:\\8_bit_rgb_pc.tif";
 	// fileName = "d:\\16_bit_rgb_pc.tif";
 	// fileName = "d:\\32_bit_rgb_pc.tif";
 	// fileName = "d:\\8_bit_rgb_planar_pc.tif";
@@ -44,6 +44,8 @@ int main(int argc, char *argv[]){
 	int nF = 0;
 	Tif::Write(imageFrames[2*nF],imageWidth[2*nF]*nChannels[2*nF],imageHeight[2*nF],fileNameOut_1);
 	Tif::Write(imageFrames[2*nF+1],imageWidth[2*nF],imageHeight[2*nF]*nChannels[2*nF],fileNameOut_2);
+
+	std::vector<float> shifts = correlateRows<float>(imageFrames, imageHeight[0], imageWidth[0], false, 100);
 
 }
 

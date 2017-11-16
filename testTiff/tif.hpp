@@ -43,12 +43,13 @@
 #include <limits>
 #include <vector>
 #include <numeric>
-#include <D:\p\c++\CWD\endian.hpp>
+#include <endian.hpp>
+#include <alignment.hpp>
+
 
 template <typename T>
 void printVector(std::vector<T> a){
 	for(int i=0; i<a.size(); ++i) std::cout << a[i] << " ";
-
 	std::cout << std::endl;
 }
 
@@ -414,8 +415,6 @@ struct Tif {
 				imageFrames.push_back(frameImg2to1);
 				imageFrames.push_back(frameImg);		
 			}
-
-
 
 			// (5) go to the end of this Ifd, read 4 bytes to get the offSet of the nextIfd
 			is.seekg(pos);			
