@@ -353,10 +353,10 @@ struct Tif {
 					case 16:
 						if(1==samplesPerPixel){
 							if(0==m_endianSwap){
-								for(int p=0; p<pixelsThisStrip; ++p){
-									is.read(bufPtr, 2);
-									frameImg.push_back(*(reinterpret_cast<uint16_t*>(bufPtr)));
-								}
+								char* buf = new char[pixelsThisStrip*2];
+								is.read(buf, pixelsThisStrip*2);
+								frameImg.insert(frameImg.end(), reinterpret_cast<uint16_t*>(buf), reinterpret_cast<uint16_t*>(buf)+pixelsThisStrip);
+								delete[] buf;
 							}
 							else{
 
