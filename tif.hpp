@@ -45,14 +45,6 @@
 #include <numeric>
 #include <D:\p\c++\CWD\endian.hpp>
 
-template <typename T>
-void printVector(std::vector<T> a){
-	for(int i=0; i<a.size(); ++i) std::cout << a[i] << " ";
-
-	std::cout << std::endl;
-}
-
-
 struct Tif {
 	std::uint32_t width, height, channels;
 	bool m_bigEndian;	// endian of this computer
@@ -333,7 +325,9 @@ struct Tif {
 			planarConfiguration ;	// 1=chunky, 2=planar
 			dataType ;		// 1 = by default unsinged int. 2=int, 3=float, 4=undefined.
 
-			frameImg.reserve(stackWidth*stackHeight*3);
+			uint32_t nPixels = stackWidth*stackHeight;
+			uint32_t iPixel = 0; 
+			frameImg.reserve(nPixels*samplesPerPixel*2);
 			int bitsPerPixel = 0;
 			for (int ii=0; ii<samplesPerPixel; ++ii){
 				bitsPerPixel += bitsPerSample[ii];
@@ -341,11 +335,15 @@ struct Tif {
 			
 			int pixelsThisStrip = 0;
 			for (int iStrip=0; iStrip<stripOffSets.size(); ++iStrip){
+
 				pixelsThisStrip = stripByteCounts[iStrip] * 8 / bitsPerPixel;
+				
 				is.seekg(stripOffSets[iStrip]);
+				
 				int bitOffset = 0;
+				
 				if(1==planarConfiguration){
-					for (int iPixel=0; iPixel<pixelsThisStrip; ++iPixel){
+					for (int iPixelThisStrip=0; iPixelThisStrip<pixelsThisStrip; ++iPixelThisStrip){
 						for (int iChannel = 0; iChannel<samplesPerPixel; ++iChannel){
 							frameImg.push_back( readToUint16(is, bitOffset, bitsPerSample[iChannel], m_endianSwap) );
 							bitOffset += bitsPerSample[iChannel];	// update bitOffset, which is wrt the the position indicated by current stripOffset				
@@ -353,10 +351,18 @@ struct Tif {
 					}
 				}
 				else if(2==planarConfiguration){
-
-
+					for (int iChannel = 0; iChannel<samplesPerPixel; ++iChannel){
+						for (int iPixelThisStrip=0; iPixelThisStrip<pixelsThisStrip; ++iPixelThisStrip){
+							// have to use this insert method, because frameImg can resize, then the .begin() will change.
+							frameImg.insert(frameImg.begin() + iPixel + iChannel*pixelsThisStrip , readToUint16(is, bitOffset, bitsPerSample[iChannel], m_endianSwap) );
+							iPixel ++;
+							bitOffset += bitsPerSample[iChannel];	// update bitOffset, which is wrt the the position indicated by current stripOffset
+						}
+						iPixel -= pixelsThisStrip;	// reset for the next channel
+					}
+					iPixel += pixelsThisStrip;	// set after reading all the channel
 				}				
-				
+				printVector(frameImg);
 			}
 			// push to imageFrames
 			imageFrames.push_back(frameImg);

@@ -5,6 +5,14 @@
 // creatd to help treat endian related issue.
 // 2017-11
 
+template <typename T>
+void printVector(std::vector<T> a){
+	for(int i=0; i<a.size(); ++i) std::cout << a[i] << " ";
+
+	std::cout << std::endl;
+}
+
+
 // Test if this computer is bigEndian
 bool BigEndianThisMachine(){
 	union {

@@ -20,16 +20,18 @@ int main(int argc, char *argv[]){
 	
 	fileName = "d:\\mm.tif";
 	fileName = "d:\\8_stack.tif";
+	fileName = "d:\\rgbrgb.tif";
+	fileName = "d:\\rrggbb.tif";
 	fileName = "d:\\8_bit_grayscale_pc.tif";
 	fileName = "d:\\16_bit_grayscale_pc.tif";
 	fileName = "d:\\32_bit_grayscale_pc.tif";
 	fileName = "d:\\8_bit_rgb_pc.tif";
-	fileName = "d:\\16_bit_rgb_pc.tif";
-	fileName = "d:\\32_bit_rgb_pc.tif";
+	// fileName = "d:\\16_bit_rgb_pc.tif";
+	// fileName = "d:\\32_bit_rgb_pc.tif";
 	fileName = "d:\\8_bit_rgb_planar_pc.tif";
 	// fileName = "d:\\16_bit_rgb_planar_pc.tif";
 	// fileName = "d:\\32_bit_rgb_planar_pc.tif";
-
+	fileName = "d:\\rrggbb.tif";
 	if(argc>1){
 		std::string s(argv[1]);
 		fileName = s;
@@ -47,6 +49,7 @@ int main(int argc, char *argv[]){
 	// }
 	// std::cout << std::endl;
 	int nF = 0;
+	printVector(imageWidth);
 	Tif::Write(imageFrames[nF],imageWidth[nF]*nChannels[nF],imageHeight[nF],fileNameOut);
 }
 
