@@ -6,7 +6,6 @@
 
 
 int main(int argc, char *argv[]){
-	
 
 	// first make a tif image.
 	std::string fileNameOut_1 = "d:\\output_1.tif";

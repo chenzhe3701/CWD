@@ -423,21 +423,6 @@ struct Tif {
 			nextIfd = EndianSwap(*(reinterpret_cast<std::uint32_t*>(bufPtr)), m_endianSwap);
 		}
 
-
-		// This loop printf the raw Ifds to user.
-		// for (int iIfd = 0; iIfd < nIfds; ++ iIfd){
-		// 	std::cout << "\nIfd #: " << iIfd << std::endl;
-		// 	printf("# of entries: %X%X", (uint8_t)IfdCopy[iIfd][0], (uint8_t)IfdCopy[iIfd][1]);	// # Ifds
-		// 	for(int j=2; j<IfdCopy[iIfd].size()-4;++j){
-		// 		if (2==j%12) std::cout<<std::endl;
-		// 		printf("%X ", (uint8_t)IfdCopy[iIfd][j]);
-		// 	}
-		// 	std::cout << "\nNext Ifd offset:";
-		// 	for(int j=IfdCopy[iIfd].size()-4; j<IfdCopy[iIfd].size();++j){
-		// 		if (IfdCopy[iIfd].size()-4==j%16) std::cout<<std::endl;
-		// 		printf("%X ", (uint8_t)IfdCopy[iIfd][j]);
-		// 	}
-		// }
 		delete[] bufPtr;
 	}
 
@@ -513,11 +498,11 @@ struct Tif {
 		firstIfd = *(reinterpret_cast<uint32_t*>(buffer));
 		firstIfd = EndianSwap(firstIfd, m_endianSwap);
 
-		printf("%s %X %X %X %X \n","magicBytes:", magicBytes[0], magicBytes[1], magicBytes[2], magicBytes[3]);
-		std::cout << "The endian of this computer (is big?): " << m_bigEndian << std::endl;
-		std::cout << "The endian of the target file (is big?): " << bigEndianTiff << std::endl;
+		// printf("%s %X %X %X %X \n","magicBytes:", magicBytes[0], magicBytes[1], magicBytes[2], magicBytes[3]);
+		// std::cout << "The endian of this computer (is big?): " << m_bigEndian << std::endl;
+		// std::cout << "The endian of the target file (is big?): " << bigEndianTiff << std::endl;
 		std::cout << "When reading, need to swap endian ?: " << m_endianSwap << std::endl;
-		std::cout << "firstIfd offset endian swapped corrected: " << firstIfd << std::endl;
+		// std::cout << "firstIfd offset endian swapped corrected: " << firstIfd << std::endl;
 		delete[] buffer;
 	}
 
