@@ -23,7 +23,8 @@ int main(int argc, char *argv[]){
 	// fileName = "d:\\A_PC_RGBRGB_16B.tif";
 	// fileName = "d:\\B_Mac_RRGGBB_16B.tif";
 	// fileName = "d:\\C_PC_RGBRGB_32B.tif";
-	fileName = "d:\\D_PC_RGBRGB_16B_RGB.tif";
+	// fileName = "d:\\D_PC_RGBRGB_24B_RGB.tif";
+	fileName = "d:\\E_24bit.tif";
 
 	if(argc>1){
 		std::string s(argv[1]);
