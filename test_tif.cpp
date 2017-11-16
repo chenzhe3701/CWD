@@ -9,7 +9,8 @@ int main(int argc, char *argv[]){
 	
 
 	// first make a tif image.
-	std::string fileNameOut = "d:\\outTif.tif";
+	std::string fileNameOut_1 = "d:\\output_1.tif";
+	std::string fileNameOut_2 = "d:\\output_2.tif";
 	std::string fileName = "d:\\2by2tif.tif";
 	// std::vector<uint16_t> vec(4);
 	// vec[0] = 0;
@@ -24,11 +25,13 @@ int main(int argc, char *argv[]){
 	fileName = "d:\\16_bit_grayscale_pc.tif";
 	fileName = "d:\\32_bit_grayscale_pc.tif";
 	fileName = "d:\\8_bit_rgb_pc.tif";
-	fileName = "d:\\16_bit_rgb_pc.tif";
-	fileName = "d:\\32_bit_rgb_pc.tif";
-	fileName = "d:\\8_bit_rgb_planar_pc.tif";
+	// fileName = "d:\\16_bit_rgb_pc.tif";
+	// fileName = "d:\\32_bit_rgb_pc.tif";
+	// fileName = "d:\\8_bit_rgb_planar_pc.tif";
 	// fileName = "d:\\16_bit_rgb_planar_pc.tif";
 	// fileName = "d:\\32_bit_rgb_planar_pc.tif";
+	// fileName = "d:\\rgbrgb.tif";
+	// fileName = "d:\\rrggbb.tif";
 
 	if(argc>1){
 		std::string s(argv[1]);
@@ -39,14 +42,9 @@ int main(int argc, char *argv[]){
 	std::vector<std::vector<uint16_t>> imageFrames;
 	Tif::Read(imageFrames, imageWidth, imageHeight, imageSampleFormat, nChannels, fileName);
 
-	// unsigned int aa = 0xffffffae;
-	// std::cout << aa;
-	// printf some values
-	// for (int i = 0; i<8; i++){
-	// 	printf("%X ",buffer[i]);
-	// }
-	// std::cout << std::endl;
 	int nF = 0;
-	Tif::Write(imageFrames[nF],imageWidth[nF]*nChannels[nF],imageHeight[nF],fileNameOut);
+	Tif::Write(imageFrames[2*nF],imageWidth[2*nF]*nChannels[2*nF],imageHeight[2*nF],fileNameOut_1);
+	Tif::Write(imageFrames[2*nF+1],imageWidth[2*nF],imageHeight[2*nF]*nChannels[2*nF],fileNameOut_2);
+
 }
 

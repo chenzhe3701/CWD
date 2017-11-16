@@ -341,55 +341,80 @@ struct Tif {
 			
 			int pixelsThisStrip = 0;
 			uint32_t bitsThisStack = bitsPerPixel * stackWidth * stackHeight;
-			if(1==planarConfiguration){
-				for (int iStrip=0; iStrip<stripOffSets.size(); ++iStrip){
-					pixelsThisStrip = stripByteCounts[iStrip] * 8 / bitsPerPixel;
+
+			int bitsToReadTotal = bitsPerPixel * stackWidth * stackHeight; // total bits to read
+			int iStrip = 0;
+			int iChannel = 0;
+			int iPixel = 0;
+			
+			int bitsToReadStrip = stripByteCounts[iStrip] * 8;
+			int bitsToReadCurrent = bitsPerSample[iChannel];
+			int bitsRead = 0;
+			int bitOffset = 0;
+
+			int pixelsToRead = stackWidth * stackHeight;
+			int channelsToRead = samplesPerPixel;
+			// read one by one.  Keep updating bitOffset, bitsRead, iPixel(pixelsRead)
+			// keep checking bitsToReadTotal, bitsToReadStrip
+			is.seekg(stripOffSets[iStrip]);
+			while(bitsRead < bitsToReadTotal){
+				frameImg.push_back( readToUint16(is, bitOffset, bitsToReadCurrent, m_endianSwap) );
+				bitOffset += bitsToReadCurrent;
+
+				bitsRead += bitsToReadCurrent;
+				if(bitsRead == bitsToReadTotal) break;
+
+				if(bitsRead == bitsToReadStrip){
+					++ iStrip;
+					bitsToReadStrip += stripByteCounts[iStrip] * 8;
 					is.seekg(stripOffSets[iStrip]);
-					int bitOffset = 0;
-					for (int iPixel=0; iPixel<pixelsThisStrip; ++iPixel){
-						for (int iChannel = 0; iChannel<samplesPerPixel; ++iChannel){
-							frameImg.push_back( readToUint16(is, bitOffset, bitsPerSample[iChannel], m_endianSwap) );
-							bitOffset += bitsPerSample[iChannel];	// update bitOffset, which is wrt the the position indicated by current stripOffset		
-						}
+					bitOffset = 0;
+				}
+				
+				if(1==planarConfiguration){
+					++iChannel;
+					bitsToReadCurrent = bitsPerSample[iChannel];	// it depends on the channel to read
+					if(iChannel == channelsToRead){
+						iChannel = 0;		// reset pixel #
+						++iPixel;		// and update channel #
+						bitsToReadCurrent = bitsPerSample[iChannel];
 					}
 				}
-			}
-			else if(2==planarConfiguration){
-				int bitsToReadTotal = bitsPerPixel * stackWidth * stackHeight; // total bits to read
-				int iStrip = 0;
-				int iChannel = 0;
-				int iPixel = 0;
-				int bitsToReadStrip = stripByteCounts[iStrip] * 8;
-				int bitsToReadCurrent = bitsPerSample[iChannel];
-				int bitsRead = 0;
-				int bitOffset = 0;
-				is.seekg(stripOffSets[iStrip]);
-				while(bitsRead < bitsToReadTotal){
-					frameImg.push_back( readToUint16(is, bitOffset, bitsToReadCurrent, m_endianSwap) );
-					bitOffset += bitsToReadCurrent;
-
-					bitsRead += bitsToReadCurrent;
-					if(bitsRead == bitsToReadTotal) break;
-
-					if(bitsRead == bitsToReadStrip){
-						++ iStrip;
-						bitsToReadStrip += stripByteCounts[iStrip] * 8;
-						is.seekg(stripOffSets[iStrip]);
-						bitOffset = 0;
-					}
-
-					++iPixel;
-					if(iPixel == stackWidth*stackHeight){
-						iPixel = 0;
-						++iChannel;
+				else if(2==planarConfiguration){
+					++iPixel;			// this applies to planar. keep checking iPixel
+					if(iPixel == pixelsToRead){
+						iPixel = 0;		// reset pixel #
+						++iChannel;		// and update channel #
 						bitsToReadCurrent = bitsPerSample[iChannel];
 					}
 				}
 
+			}
+			// a swapped version			
+			// decide which to push back
+			if(1==planarConfiguration){
+				std::vector<uint16_t> frameImg1to2(frameImg);
+				for(int indexFrom = 0; indexFrom < frameImg.size(); indexFrom ++){
+					int channelTo = indexFrom % channelsToRead;
+					int pixelTo = indexFrom / channelsToRead;
+					int indexTo = channelTo*pixelsToRead + pixelTo;
+					frameImg1to2[indexTo] = frameImg[indexFrom];
+				}
+				imageFrames.push_back(frameImg);
+				imageFrames.push_back(frameImg1to2);				
+			}
+			else{
+				std::vector<uint16_t> frameImg2to1(frameImg);
+				for(int indexFrom = 0; indexFrom < frameImg.size(); indexFrom ++){
+					int channelTo = indexFrom / pixelsToRead;
+					int pixelTo = indexFrom % pixelsToRead;
+					int indexTo = pixelTo*channelsToRead + channelTo;
+					frameImg2to1[indexTo] = frameImg[indexFrom];
+				}
+				imageFrames.push_back(frameImg2to1);
+				imageFrames.push_back(frameImg);		
+			}
 
-			}					
-			// push to imageFrames
-			imageFrames.push_back(frameImg);
 
 
 			// (5) go to the end of this Ifd, read 4 bytes to get the offSet of the nextIfd
