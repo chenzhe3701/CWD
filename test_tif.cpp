@@ -20,10 +20,15 @@ int main(int argc, char *argv[]){
 	
 	fileName = "d:\\mm.tif";
 	fileName = "d:\\8_stack.tif";
-	// fileName = "d:\\A_PC_RGBRGB_16B.tif";
-	// fileName = "d:\\B_Mac_RRGGBB_16B.tif";
-	// fileName = "d:\\C_PC_RGBRGB_32B.tif";
-	fileName = "d:\\D_PC_RGBRGB_16B_RGB.tif";
+	fileName = "d:\\8_bit_grayscale_pc.tif";
+	fileName = "d:\\16_bit_grayscale_pc.tif";
+	fileName = "d:\\32_bit_grayscale_pc.tif";
+	fileName = "d:\\8_bit_rgb_pc.tif";
+	fileName = "d:\\16_bit_rgb_pc.tif";
+	fileName = "d:\\32_bit_rgb_pc.tif";
+	fileName = "d:\\8_bit_rgb_planar_pc.tif";
+	// fileName = "d:\\16_bit_rgb_planar_pc.tif";
+	// fileName = "d:\\32_bit_rgb_planar_pc.tif";
 
 	if(argc>1){
 		std::string s(argv[1]);
