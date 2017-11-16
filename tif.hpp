@@ -340,24 +340,54 @@ struct Tif {
 			}
 			
 			int pixelsThisStrip = 0;
-			for (int iStrip=0; iStrip<stripOffSets.size(); ++iStrip){
-				pixelsThisStrip = stripByteCounts[iStrip] * 8 / bitsPerPixel;
-				is.seekg(stripOffSets[iStrip]);
-				int bitOffset = 0;
-				if(1==planarConfiguration){
+			uint32_t bitsThisStack = bitsPerPixel * stackWidth * stackHeight;
+			if(1==planarConfiguration){
+				for (int iStrip=0; iStrip<stripOffSets.size(); ++iStrip){
+					pixelsThisStrip = stripByteCounts[iStrip] * 8 / bitsPerPixel;
+					is.seekg(stripOffSets[iStrip]);
+					int bitOffset = 0;
 					for (int iPixel=0; iPixel<pixelsThisStrip; ++iPixel){
 						for (int iChannel = 0; iChannel<samplesPerPixel; ++iChannel){
 							frameImg.push_back( readToUint16(is, bitOffset, bitsPerSample[iChannel], m_endianSwap) );
-							bitOffset += bitsPerSample[iChannel];	// update bitOffset, which is wrt the the position indicated by current stripOffset				
+							bitOffset += bitsPerSample[iChannel];	// update bitOffset, which is wrt the the position indicated by current stripOffset		
 						}
 					}
 				}
-				else if(2==planarConfiguration){
-
-
-				}				
-				
 			}
+			else if(2==planarConfiguration){
+				int bitsToReadTotal = bitsPerPixel * stackWidth * stackHeight; // total bits to read
+				int iStrip = 0;
+				int iChannel = 0;
+				int iPixel = 0;
+				int bitsToReadStrip = stripByteCounts[iStrip] * 8;
+				int bitsToReadCurrent = bitsPerSample[iChannel];
+				int bitsRead = 0;
+				int bitOffset = 0;
+				is.seekg(stripOffSets[iStrip]);
+				while(bitsRead < bitsToReadTotal){
+					frameImg.push_back( readToUint16(is, bitOffset, bitsToReadCurrent, m_endianSwap) );
+					bitOffset += bitsToReadCurrent;
+
+					bitsRead += bitsToReadCurrent;
+					if(bitsRead == bitsToReadTotal) break;
+
+					if(bitsRead == bitsToReadStrip){
+						++ iStrip;
+						bitsToReadStrip += stripByteCounts[iStrip] * 8;
+						is.seekg(stripOffSets[iStrip]);
+						bitOffset = 0;
+					}
+
+					++iPixel;
+					if(iPixel == stackWidth*stackHeight){
+						iPixel = 0;
+						++iChannel;
+						bitsToReadCurrent = bitsPerSample[iChannel];
+					}
+				}
+
+
+			}					
 			// push to imageFrames
 			imageFrames.push_back(frameImg);
 
