@@ -7,30 +7,17 @@
 
 int main(int argc, char *argv[]){
 
-	// first make a tif image.
-	std::string fileNameOut_1 = "d:\\output_1.tif";
-	std::string fileNameOut_2 = "d:\\output_2.tif";
-	std::string fileName = "d:\\2by2tif.tif";
-	// std::vector<uint16_t> vec(4);
-	// vec[0] = 0;
-	// vec[1] = pow(2,14)-1;
-	// vec[2] = pow(2,15)-1;
-	// vec[3] = pow(2,16)-1;
-	// Tif::Write(vec.data(),2,2,fileName);		
-	
-	fileName = "d:\\mm.tif";
-	fileName = "d:\\8_stack.tif";
-	// fileName = "d:\\8_bit_grayscale_pc.tif";
-	// fileName = "d:\\16_bit_grayscale_pc.tif";
-	// fileName = "d:\\32_bit_grayscale_pc.tif";
-	// fileName = "d:\\8_bit_rgb_pc.tif";
-	// fileName = "d:\\16_bit_rgb_pc.tif";
-	// fileName = "d:\\32_bit_rgb_pc.tif";
-	// fileName = "d:\\8_bit_rgb_planar_pc.tif";
-	// fileName = "d:\\16_bit_rgb_planar_pc.tif";
-	// fileName = "d:\\32_bit_rgb_planar_pc.tif";
-	// fileName = "d:\\rgbrgb.tif";
-	// fileName = "d:\\rrggbb.tif";
+	std::string folderName = "C:\\Users\\ZheChen\\Desktop\\Demonstrate Exteranl Shift\\";
+	std::string outputName = folderName + "shift_Log.txt";
+
+	bool snakeTF = false;
+	std::string fileName; 
+	fileName = folderName + "raster_2k_16_frame.tif";	snakeTF = false;
+	fileName = folderName + "raster_4k_8_frame.tif";	snakeTF = false;
+	fileName = folderName + "snake_2k_16_frame.tif";	snakeTF = true;
+	fileName = folderName + "snake_4k_16_frame.tif";	snakeTF = true;
+
+	// fileName = folderName + "3stack_small.tif";
 
 	if(argc>1){
 		std::string s(argv[1]);
@@ -41,11 +28,20 @@ int main(int argc, char *argv[]){
 	std::vector<std::vector<uint16_t>> imageFrames;
 	Tif::Read(imageFrames, imageWidth, imageHeight, imageSampleFormat, nChannels, fileName);
 
-	int nF = 0;
-	Tif::Write(imageFrames[2*nF],imageWidth[2*nF]*nChannels[2*nF],imageHeight[2*nF],fileNameOut_1);
-	Tif::Write(imageFrames[2*nF+1],imageWidth[2*nF],imageHeight[2*nF]*nChannels[2*nF],fileNameOut_2);
+	std::vector<float> shifts = correlateRows<float>(imageFrames, imageHeight[0], imageWidth[0], snakeTF, 10);
 
-	std::vector<float> shifts = correlateRows<float>(imageFrames, imageHeight[0], imageWidth[0], false, 100);
+	std::fstream os;
+	os.open(outputName, std::ios::app | std::ios::binary);	// append
 
+	int ind = 0;
+	for(int iF=0; iF<imageFrames.size(); iF++){
+		os << shifts[ind];
+		ind++;
+		if(0 == iF%2) os << "\t";
+		else os << "\n";
+	}
+	os << "\n";
+
+	os.close();
 }
 
