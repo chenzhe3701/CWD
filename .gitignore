@@ -38,3 +38,7 @@
 \CMakeFiles
 *\CMakeFiles
 *\*\CMakeFiles
+
+*\.codelite*
+*.project
+*.workspace
